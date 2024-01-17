@@ -1,8 +1,12 @@
-﻿using GameNetcodeStuff;
+﻿using BepInEx;
+using GameNetcodeStuff;
+using Steamworks;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -20,23 +24,103 @@ namespace LCTutorialMod
         {
             foreach (UnityEngine.Object o in Resources.FindObjectsOfTypeAll(typeof(EnemyAI)))
             {
-                EnemyAI ai = (EnemyAI)o;
-                SpawnableEnemyWithRarity spawnable = new SpawnableEnemyWithRarity();
-                spawnable.enemyType = ai.enemyType;
+                try
+                {
+                    EnemyAI ai = (EnemyAI)o;
+                    SpawnableEnemyWithRarity spawnable = new SpawnableEnemyWithRarity();
+                    spawnable.enemyType = ai.enemyType;
 
-                if (spawnable.enemyType.isDaytimeEnemy || spawnable.enemyType.isOutsideEnemy)
-                {
-                    TutorialModBase.Instance.OutdoorEnemyList.Add(spawnable);
-                    TutorialModBase.mls.LogInfo($"added outdoor enemy: {spawnable.enemyType.enemyName}");
+                    if (spawnable.enemyType.isDaytimeEnemy || spawnable.enemyType.isOutsideEnemy)
+                    {
+                        TutorialModBase.Instance.OutdoorEnemyList.Add(spawnable);
+                        TutorialModBase.mls.LogInfo($"added outdoor enemy: {spawnable.enemyType.enemyName}");
+                    }
+                    else
+                    {
+                        TutorialModBase.Instance.IndoorEnemyList.Add(spawnable);
+                        TutorialModBase.mls.LogInfo($"added indoor enemy: {spawnable.enemyType.enemyName}");
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    TutorialModBase.Instance.IndoorEnemyList.Add(spawnable);
-                    TutorialModBase.mls.LogInfo($"added indoor enemy: {spawnable.enemyType.enemyName}");
+                    TutorialModBase.mls.LogInfo(e.Message);
                 }
+
             }
         }
 
+        internal static void GetLocalPlayerController()
+        {
+            /*
+            string myPlayerName = string.Empty;
+            try
+            {
+                myPlayerName = SteamClient.Name.ToString();
+            }
+            catch(Exception e) { Console.WriteLine("Steam is not enabled."); };
+
+            int playerID = 0;
+            foreach(KeyValuePair<int, string> playerInfo in GetAllPlayers())
+            {
+                Console.WriteLine($"Steam Name: {myPlayerName}");
+                Console.WriteLine($"Game Name: {playerInfo.Value}");
+                if (myPlayerName == playerInfo.Value)
+                {
+                    playerID = playerInfo.Key;
+                    break;
+                }
+                
+            }
+            */
+
+            //TutorialModBase.Instance.Player = StartOfRound.Instance.allPlayerScripts[playerID];
+            TutorialModBase.Instance.Player = GameNetworkManager.Instance.localPlayerController;
+
+
+        }
+
+        internal static Dictionary<string, string> EnemyDisplayNames = new Dictionary<string, string>()
+        {
+            { "Jackinthebox", "Jester" },
+            { "Demon", "Girl" },
+            { "Ghost", "Girl" },
+            { "Spider", "Bunker Spider" },
+            { "Thumper", "Crawler" },
+            { "Goo", "Blob" },
+            { "Hygrodere", "Blob" },
+            { "FaceHugger", "Centipede" },
+            { "Bracken", "Flowerman" },
+            { "Lootbug", "Hoarding bug" },
+            { "SporeLizard", "Puffer" },
+            { "CoilHead", "Spring" },
+            { "Coil", "Spring" },
+            { "Worm", "Earth Leviathan" },
+            { "EyelessDog", "MouthDog" },
+            { "Dog", "MouthDog" },
+            { "Bird", "Baboon hawk" },
+            { "ForestKeeper", "ForestGiant" },
+            { "Giant", "ForestGiant" },
+            { "Mimic", "Masked" }
+        };
+
+        internal static Dictionary<SpawnableEnemyWithRarity, int> EnemyRarity = new Dictionary<SpawnableEnemyWithRarity, int>();
+
+        internal static List<SpawnableEnemyWithRarity> CurrentLevelEnemies = new List<SpawnableEnemyWithRarity>();
+        internal static List<SpawnableEnemyWithRarity> CurrentLevelDaytimeEnemies = new List<SpawnableEnemyWithRarity>();
+        internal static List<SpawnableEnemyWithRarity> CurrentLevelOutsideEnemies = new List<SpawnableEnemyWithRarity>();
+
+        internal static Dictionary<string, System.Action> Commands = new Dictionary<string, Action>()
+        {
+            { "GodMode", ToggleGodMode },
+            { "God", ToggleGodMode },
+            { "SpawnRandom", SpawnCommandError },
+            { "Spawn", SpawnCommandError },
+            { "SpawnNear", SpawnCommandError },
+            { "Speed", ToggleSpeedHack },
+            { "Sprint", ToggleSpeedHack },
+            { "Fly", ToggleFlyHack },
+            { "FlyHack", ToggleFlyHack },
+        };
 
         internal static List<SpawnableEnemyWithRarity> FixIndoorEnemySpawns()
         {
@@ -72,8 +156,16 @@ namespace LCTutorialMod
             PufferAI pufferRef = null;
             SpringManAI springRef = null;
             NutcrackerEnemyAI nutRef = null;
+            MaskedPlayerEnemy maskEnemyRef = null;
 
-
+            foreach (UnityEngine.Object o in Resources.FindObjectsOfTypeAll(typeof(MaskedPlayerEnemy)))
+            {
+                maskEnemyRef = (MaskedPlayerEnemy)o;
+                break;
+            }
+            SpawnableEnemyWithRarity maskEnemySpawnable = new SpawnableEnemyWithRarity();
+            if (maskEnemyRef != null) { maskEnemySpawnable.enemyType = maskEnemyRef.enemyType; }
+            returnList.Add(maskEnemySpawnable);
 
             foreach (UnityEngine.Object o in Resources.FindObjectsOfTypeAll(typeof(JesterAI)))
             {
@@ -195,7 +287,15 @@ namespace LCTutorialMod
             DocileLocustBeesAI locustRef = null;
             DoublewingAI birdRef = null;
             ForestGiantAI giantRef = null;
+            MaskedPlayerEnemy maskEnemyRef = null;
 
+            foreach (UnityEngine.Object o in Resources.FindObjectsOfTypeAll(typeof(MaskedPlayerEnemy)))
+            {
+                maskEnemyRef = (MaskedPlayerEnemy)o;
+            }
+            SpawnableEnemyWithRarity maskEnemySpawnable = new SpawnableEnemyWithRarity();
+            if (maskEnemyRef != null) { maskEnemySpawnable.enemyType = maskEnemyRef.enemyType; }
+            returnList.Add(maskEnemySpawnable);
 
             foreach (UnityEngine.Object o in Resources.FindObjectsOfTypeAll(typeof(DressGirlAI)))
             {
@@ -257,12 +357,13 @@ namespace LCTutorialMod
             return returnList;
         }
 
-
         internal static void SpawnEnemyAtRandomLocation(string EnemyName = "", int Amount = 1)
         {
             if(EnemyName == "") { return; }
 
             int IndexOfEnemyToSpawn = -1;
+
+            EnemyName = GetBestEnemyMatch(EnemyName);
 
             foreach(SpawnableEnemyWithRarity enemy in TutorialModBase.Instance.IndoorEnemyList)
             {
@@ -337,6 +438,7 @@ namespace LCTutorialMod
             Vector3 pos = playerObj.transform.position;
             bool inside = playerCtrl.isInsideFactory;
             int IndexOfEnemyToSpawn = -1;
+            EnemyName = GetBestEnemyMatch(EnemyName);
 
             if (inside)
             {
@@ -468,7 +570,6 @@ namespace LCTutorialMod
             List<SpawnableEnemyWithRarity> allEnemies = new List<SpawnableEnemyWithRarity>();
             allEnemies.AddRange(TutorialModBase.Instance.IndoorEnemyList);
             allEnemies.AddRange(TutorialModBase.Instance.OutdoorEnemyList);
-
             int SmallestDifference = 10000;
 
             foreach(SpawnableEnemyWithRarity enemy in allEnemies)
@@ -481,7 +582,205 @@ namespace LCTutorialMod
                 }
             }
 
+            foreach(KeyValuePair<string, string> pair in EnemyDisplayNames)
+            {
+                int currentAmount = ComputeStringDifference(name, pair.Key);
+                if (currentAmount < SmallestDifference)
+                {
+                    SmallestDifference = currentAmount;
+                    result = pair.Value;
+                }
+            }
+
             return result;
         }
+
+        internal static Dictionary<int, string> GetAllPlayers()
+        {
+            int playerID = 0;
+            Dictionary<int, string> pList = new Dictionary<int, string>();
+
+            foreach(PlayerControllerB player in StartOfRound.Instance.allPlayerScripts)
+            {
+                pList.Add(playerID, player.playerUsername);
+                playerID++;
+            }
+            return pList;
+        }
+
+        internal static void FlyHack()
+        {
+            float Speed = TutorialModBase.Instance.ConfigManager.PlayerSpeed * Time.deltaTime;
+
+            if (UnityInput.Current.GetKey(KeyCode.LeftShift))
+            {
+                Speed *= 2f;
+            }
+            if (UnityInput.Current.GetKey(KeyCode.W))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += TutorialModBase.Instance.Player.playerGlobalHead.transform.forward * Speed;
+            }
+            if (UnityInput.Current.GetKey(KeyCode.A))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += TutorialModBase.Instance.Player.playerGlobalHead.transform.right * -Speed;
+            }
+            if (UnityInput.Current.GetKey(KeyCode.S))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += TutorialModBase.Instance.Player.playerGlobalHead.transform.forward * -Speed;
+            }
+            if (UnityInput.Current.GetKey(KeyCode.D))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += TutorialModBase.Instance.Player.playerGlobalHead.transform.right * Speed;
+            }
+            if (UnityInput.Current.GetKey(KeyCode.Space))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += Vector3.up * Speed;
+                
+
+            }
+            if (UnityInput.Current.GetKey(KeyCode.LeftControl))
+            {
+                TutorialModBase.Instance.Player.playerRigidbody.transform.position += TutorialModBase.Instance.Player.playerGlobalHead.transform.up * -Speed;
+            }
+            TutorialModBase.Instance.Player.ResetFallGravity();
+        }
+
+        internal static string GetBestCommandMatch(string cmd)
+        {
+            string result = string.Empty;
+            int SmallestDifference = 10000;
+            foreach(KeyValuePair<string, System.Action> command in Commands)
+            {
+                int currentAmount = ComputeStringDifference(cmd, command.Key);
+
+                if (currentAmount < SmallestDifference) 
+                {
+                    result = command.Key;
+                    SmallestDifference = currentAmount;
+                }
+            }
+
+            return result;
+        }
+
+        internal static int GetBestPlayerMatch(string name)
+        {
+            int result = 0;
+            int SmallestDifference = 10000;
+            foreach (KeyValuePair<int, string> player in GetAllPlayers())
+            {
+                int currentAmount = ComputeStringDifference(name, player.Value);
+
+                if (currentAmount < SmallestDifference)
+                {
+                    result = player.Key;
+                    SmallestDifference = currentAmount;
+                }
+            }
+
+            return result;
+        }
+
+        internal static bool HandleCommand(string command)
+        {
+            string Prefix = "/";
+
+            // if !string.isemptyornull(prefixsetting)
+            // prefix  = prefixsetting
+
+            // /spawn dog 5
+            // ?godmode
+            // godmode NONO
+
+            if(!command.ToLower().StartsWith(Prefix.ToLower())) { return false; }
+            //Console.WriteLine(command);
+            string[] enteredText = command.Split(' ');
+
+            command = enteredText[0];
+            string filteredCommand = GetBestCommandMatch(command);
+
+            if (!filteredCommand.Contains("Spawn"))
+            {
+                Commands[filteredCommand]();
+                return true;
+            }
+            // /godmode
+            // /god
+            // /gdo
+            // enables godmode
+
+            // /spawn
+            // /spawnnear
+            // /spawnrandom
+            HandleSpawnCommand(filteredCommand, enteredText);
+
+
+            return true;
+        }
+
+        private static bool HandleSpawnCommand(string command, string[] commandInfo)
+        {
+            Console.WriteLine("Handling Spawn command");
+            if(command == "Spawn" || command == "SpawnRandom")
+            {
+                if(commandInfo.Length > 2) 
+                {
+                    Console.WriteLine($"Length greater than 2: {commandInfo}");
+
+                    if (Int32.TryParse(commandInfo[2], out int value))
+                    {
+                        SpawnEnemyAtRandomLocation(commandInfo[1], value);
+                        return true;
+                    }
+                }
+                SpawnEnemyAtRandomLocation(commandInfo[1]);
+                return true;
+            }
+
+            if (commandInfo.Length < 2) { return false; }
+
+            int playerToSpawnNear = GetBestPlayerMatch(commandInfo[2]);
+
+            SpawnEnemyAtNearestLocation(commandInfo[2], playerToSpawnNear); 
+            
+            return true;
+
+        }
+
+        private static void ToggleGodMode()
+        {
+            TutorialModBase.Instance.ConfigManager.GodMode = !TutorialModBase.Instance.ConfigManager.GodMode;
+        }
+
+        private static void ToggleSpeedHack()
+        {
+            TutorialModBase.Instance.ConfigManager.CustomSprint = !TutorialModBase.Instance.ConfigManager.CustomSprint;
+            if (!TutorialModBase.Instance.ConfigManager.CustomSprint)
+            {
+                TutorialModBase.Instance.ConfigManager.PlayerSpeed = 5f;
+                TutorialModBase.Instance.Player.movementSpeed = 5f;
+            }
+            else
+            {
+                TutorialModBase.Instance.ConfigManager.PlayerSpeed = 25f;
+                TutorialModBase.Instance.Player.movementSpeed = 25f;
+            }
+        }
+
+        private static void ToggleFlyHack()
+        {
+            TutorialModBase.Instance.ConfigManager.FlyHack = !TutorialModBase.Instance.ConfigManager.FlyHack;
+        }
+
+        private static void SpawnCommandError()
+        {
+            TutorialModBase.mls.LogError("This should not have been called. Please report this to Minx with steps to reproduce if possible.");
+        }
+
+        private static void NightVision()
+        {
+            //TutorialModBase.Instance.Player.nightVision
+        }
+
     }
 }
